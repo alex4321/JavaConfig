@@ -6,6 +6,9 @@ import java.util.HashMap;
 import java.io.File;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.*;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
@@ -24,6 +27,27 @@ public class Config {
         catch (Exception err) {
             err.printStackTrace();
             return null;
+        }
+    }
+
+    public static void SaveDocument(Document doc, Path filePath) {
+        try {
+            Source source = new DOMSource(doc);
+
+            File file = new File(filePath.toString());
+            if(!file.exists())
+                if(file.createNewFile()) {
+                    Result result = new StreamResult(file);
+
+                    Transformer xformer = TransformerFactory.newInstance().newTransformer();
+                    xformer.transform(source, result);
+                }
+                else {
+                    throw new Exception("Can't rewrite config "+filePath.toString());
+                }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -117,5 +141,54 @@ public class Config {
         Config.LoadConfigFile(filePath, result);
 
         return result;
+    }
+
+    public static boolean SetConfigVariable(Document config, String variable, String value) {
+        config.getDocumentElement().normalize();
+        Node root = config.getElementsByTagName("config").item(0);
+        NodeList rootChildren = root.getChildNodes();
+
+        for(int i=0;i<rootChildren.getLength();i++) {
+            if(rootChildren.item(i).getNodeType()==Node.ELEMENT_NODE) {
+                Element item = (Element)rootChildren.item(i);
+                if(item.getTagName().equals("param") && item.getAttribute("name").equals(variable)) {
+                    item.removeAttribute("value");
+                    item.setAttribute("value", value);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static void SetVariables(Path filePath, HashMap<String, String> variables) {
+        HashMap<String, String> loaded = new HashMap<String, String>();
+        Document config = Config.LoadDocument(filePath);
+        boolean changed = false;
+        if(config!=null) {
+            HashMap<String, String> config_variables = new HashMap<String, String>();
+            config.getDocumentElement().normalize();
+            Node root = config.getElementsByTagName("config").item(0);
+            ArrayList<String> includes = new ArrayList<String>();
+            Config.ParseConfigParams(root, loaded, includes);
+            Config.ReplaceVariables(loaded, config_variables);
+            Config.ReplaceIncludeNames(config_variables, includes);
+
+            for(String file : includes) {
+                Config.SetVariables(Paths.get(file), variables);
+            }
+
+            for(Object key : variables.keySet().toArray() ) {
+                String variableName = key.toString();
+                String variableValue = variables.get(variableName);
+                if(Config.SetConfigVariable(config, variableName, variableValue)) {
+                    changed = true;
+                }
+            }
+
+            if(changed) {
+                SaveDocument(config, filePath);
+            }
+        }
     }
 }
