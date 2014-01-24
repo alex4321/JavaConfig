@@ -13,7 +13,7 @@ Config example :
 
 lang/lang.ru.xml :
 <?xml version="1.1" encoding="UTF-8" ?>
-<config>
+< config>
     <param name="LANG_SPLIT_REGEXP" value="[^(рублей)] |-|_|:|!|[^0123456789]\.|\.[^0123456789]" />
     <param name="PRICE_EXTRACTION_REGEXP" value="(^([0-9]+)|([0-9]+((\.|рублей| )+)[0-9]+)$)" />
     <param name="PRICE_EXTRACTION_DELIMETER" value="\.|руб|рублей| " />
