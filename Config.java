@@ -1,24 +1,17 @@
-import com.sun.beans.decoder.DocumentHandler;
-
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
-import java.util.Map.Entry;
-
-import javax.xml.parsers.ParserConfigurationException;
 
 import java.io.File;
-import java.util.Iterator;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 import org.w3c.dom.*;
-import sun.tools.jar.resources.jar;
 
+@SuppressWarnings("WeakerAccess")
 public class Config {
     private static Document LoadDocument(Path filePath) {
         File f = new File(filePath.toString());
@@ -26,8 +19,7 @@ public class Config {
 
         try {
             DocumentBuilder db = dbf.newDocumentBuilder();
-            Document doc = db.parse(f);
-            return doc;
+            return db.parse(f);
         }
         catch (Exception err) {
             err.printStackTrace();
@@ -54,33 +46,29 @@ public class Config {
     private static void ReplaceVariables(HashMap<String, String> loaded, HashMap<String, String> result) {
         Pattern variable = Pattern.compile("\\!(.+?)\\!");
 
-        while(loaded.size()!=result.size()) {
-            Iterator loadedIterator = loaded.entrySet().iterator();
-            while(loadedIterator.hasNext()) {
-                Entry<String, String> pairs = (Entry)loadedIterator.next();
+        for(Object key : loaded.keySet().toArray()) {
+            String loadedName = key.toString();
+            String loadedValue = loaded.get(loadedName);
 
-                String loadedName = pairs.getKey();
-                String loadedValue = pairs.getValue();
-                StringBuilder resultValue = new StringBuilder(loadedValue);
+            StringBuilder resultValue = new StringBuilder(loadedValue);
 
-                Matcher variables = variable.matcher(resultValue);
+            Matcher variables = variable.matcher(resultValue);
 
-                boolean ready = true;
-                while(variables.find()) {
-                    String variableName = variables.group(1);
-                    if(result.get(variableName)!=null) {
-                        resultValue.replace(variables.start(1)-1, variables.end(1)+1, result.get(variableName));
+            boolean ready = true;
+            while(variables.find()) {
+                String variableName = variables.group(1);
+                if(result.get(variableName)!=null) {
+                    resultValue.replace(variables.start(1)-1, variables.end(1)+1, result.get(variableName));
 
-                        variables = variable.matcher(resultValue);
-                    }
-                    else {
-                        ready = false;
-                    }
+                    variables = variable.matcher(resultValue);
                 }
-
-                if(ready) {
-                    result.put(loadedName, resultValue.toString());
+                else {
+                    ready = false;
                 }
+            }
+
+            if(ready) {
+                result.put(loadedName, resultValue.toString());
             }
         }
     }
@@ -111,7 +99,6 @@ public class Config {
             config.getDocumentElement().normalize();
 
             Node root = config.getElementsByTagName("config").item(0);
-            NodeList rootChildren = root.getChildNodes();
 
             ArrayList<String> includes = new ArrayList<String>();
 
@@ -119,14 +106,13 @@ public class Config {
             Config.ReplaceVariables(loaded, result);
             Config.ReplaceIncludeNames(result, includes);
 
-            for(int i=0;i<includes.size();i++) {
-                Config.LoadConfigFile(Paths.get(includes.get(i)), result);
+            for(String file : includes ) {
+                Config.LoadConfigFile(Paths.get(file), result);
             }
         }
     }
 
     public static HashMap<String, String> LoadConfig(Path filePath) {
-        HashMap<String, String> loaded = new HashMap<String, String>();
         HashMap<String, String> result = new HashMap<String, String>();
         Config.LoadConfigFile(filePath, result);
 
